@@ -1,0 +1,22 @@
+limit_req_zone $binary_remote_addr zone=ip_rate_limit:1m rate=20r/m;
+
+server {
+
+    listen 80;
+    server_name localhost;
+    root /usr/share/nginx/static;
+
+    location / {
+        index  /html/index.html;
+    }
+
+    location ~ ^/api {
+        limit_req zone=ip_rate_limit;
+        proxy_pass http://workbook:8000;  # host in docker compose network
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Host $server_name;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+}

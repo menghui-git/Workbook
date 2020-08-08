@@ -1,0 +1,61 @@
+version: '3'
+services:
+  workbook:
+    restart: always
+    build: ./workbook
+    image: workbook:latest
+    ports:
+      - "8000:8000"
+      - "5678:5678"
+    volumes:
+      - ./workbook:/usr/src/app
+      - workbook-static:/usr/src/app/static
+    env_file: .env
+    depends_on:
+        - db
+        - sqs
+    command: /usr/local/bin/gunicorn workbook.wsgi:application -w 2 -b :8000 --reload
+  db:
+    restart: always
+    image: postgres:12.3
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data/
+    env_file: .env
+  celery:
+    image: workbook:latest
+    env_file: .env
+    volumes:
+      - celery-data:/var/lib/celery/data
+    depends_on:
+      - workbook
+      - sqs
+    command: celery -A workbook worker -l info
+  celery-beat:
+    image: workbook:latest
+    env_file: .env
+    volumes:
+      - celery-beat-data:/var/lib/celery-beat/data
+    depends_on:
+      - celery
+    command: celery -A workbook beat -l info
+  sqs:
+    image: roribio16/alpine-sqs
+    ports:
+      - "9324:9324"
+      - "9325:9325"  # web interface
+    volumes:
+      - ./config/elasticmq.conf:/opt/config/elasticmq.conf
+  nginx:
+    restart: always
+    build: ./nginx/
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/static:/usr/share/nginx/static
+volumes:
+  db-data:
+  celery-data:
+  celery-beat-data:
+  workbook-static:
